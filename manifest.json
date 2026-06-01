@@ -1,0 +1,26 @@
+{
+  "name": "T-CAMERA V26 | EDWINN",
+  "short_name": "T-CAMERA",
+  "description": "Cámara profesional con GPS y datos de ubicación en tiempo real",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#000814",
+  "theme_color": "#ff8500",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "lang": "es"
+}

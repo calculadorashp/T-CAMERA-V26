@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>T-CAMERA V26 | EDWINN</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="T-CAMERA">
+    <meta name="theme-color" content="#000814">
+
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background: #000814;
+            color: #ffffff;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+
+        #camera-container {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+        }
+        video { width: 100%; height: 100%; object-fit: cover; }
+
+        #ui-overlay {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+            display: flex; flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+        /*************** COLOR DE FONDO ***************/
+        .panel {
+            background: rgba(0, 20, 39, 0.1);
+            backdrop-filter: blur(8px);
+            border: 1px solid #ff8500;
+            padding: 15px; margin: 12px;
+            border-radius: 10px;
+            pointer-events: auto;
+        }
+        /*************** COLOR DEl TÍTULO ***************/
+        h2 { color: #00f5ff; margin: 0 0 8px 0; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        /*************** TEXTO DE COORDENADAS***************/
+        .data-row {
+            display: flex; justify-content: space-between;
+            margin-bottom: 4px; font-family: 'Courier New', monospace;
+            font-size: 12px; font-weight: bold;
+            color: #ffffff;
+        }
+
+        .btn-capture {
+            position: absolute; bottom: 85px; left: 50%;
+            transform: translateX(-50%);
+            width: 75px; height: 75px;
+            background: radial-gradient(#ff8500, #ff6200);
+            border: 4px solid #ffffff;
+            border-radius: 50%;
+            pointer-events: auto;
+            box-shadow: 0 0 20px rgba(255, 133, 0, 0.6);
+            cursor: pointer;
+        }
+        .btn-capture:active { transform: translateX(-50%) scale(0.9); }
+
+        #settings-panel {
+            display: none;
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 85%; max-width: 400px;
+            z-index: 100;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        input[type="text"], input[type="file"] {
+            width: 100%; background: #001427;
+            border: 1px solid #ff8500; color: white;
+            margin: 10px 0; padding: 8px;
+            box-sizing: border-box; border-radius: 4px;
+        }
+
+        .btn-config {
+            position: absolute; top: 15px; right: 15px;
+            background: rgba(255,133,0,0.2); border: 1px solid #ff8500;
+            color: white; border-radius: 50%;
+            width: 40px; height: 40px; cursor: pointer;
+            pointer-events: auto; z-index: 10;
+        }
+        /*************** TAMAÑO DEL LOGO CARGADO ***************/
+        #logo-preview {
+            max-height: 85px; width: auto;
+            margin-right: 15px; display: block;
+        }
+
+        /* Splash / install banner */
+        #install-banner {
+            display: none;
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,20,39,0.95);
+            border: 1px solid #ff8500;
+            border-radius: 10px;
+            padding: 12px 20px;
+            z-index: 200;
+            text-align: center;
+            font-size: 13px;
+            pointer-events: auto;
+            box-shadow: 0 0 20px rgba(255,133,0,0.4);
+        }
+        #install-banner button {
+            background: #ff8500; color: white; border: none;
+            padding: 8px 16px; border-radius: 4px;
+            cursor: pointer; font-weight: bold; margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="settings-panel" class="panel">
+        <h2>Configuración TECNLAB</h2>
+        <label style="font-size: 11px; color: #ff8500;">LOGO DE LA FIRMA (PNG):</label>
+        <input type="file" id="logo-input" accept="image/png" onchange="actualizarLogo(event)">
+        <label style="font-size: 11px; color: #ff8500;">NOMBRE DEL PROYECTO / EMPRESA:</label>
+        <input type="text" id="edit-empresa" placeholder="Ej: TECNLAB - EDWINN" oninput="actualizarTexto()">
+        <button onclick="toggleSettings()" style="width:100%; background:#ff8500; color:white; border:none; padding:12px; font-weight:bold; border-radius:4px; cursor:pointer; margin-top:10px;">GUARDAR Y CERRAR</button>
+    </div>
+
+    <div id="install-banner">
+        📲 <strong>Instalar T-CAMERA en tu dispositivo</strong><br>
+        <button id="btn-install">Agregar a pantalla de inicio</button>
+        <button onclick="document.getElementById('install-banner').style.display='none'"
+            style="background:transparent; border:1px solid #ff8500; margin-left:8px;">Ahora no</button>
+    </div>
+
+    <div id="camera-container">
+        <video id="video" autoplay playsinline></video>
+    </div>
+
+    <div id="ui-overlay">
+        <button class="btn-config" onclick="toggleSettings()">⚙️</button>
+
+        <div class="panel">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <img id="logo-preview" src="TECN_logo.png" style="display: block;">
+                <h2 id="display-empresa">TECN EIRL Ingeniería & Consultoría</h2>
+            </div>
+            <div class="data-row"><span>LATITUD (Y):</span> <span id="lat">Buscando GPS...</span></div>
+            <div class="data-row"><span>LONGITUD (X):</span> <span id="lon">Buscando GPS...</span></div>
+            <div class="data-row" style="color: #ffffff;font-size: 12px;"><span>ALTITUD (Z):</span> <span id="alt">0.00 m</span></div>
+            <div class="data-row" style="color: #ffffff; border-top: 1px solid rgba(255,133,0,0.3); padding-top:5px; margin-top:5px;font-size: 12px;">
+                <span>HORA LOCAL:</span> <span id="clock">00:00:00</span>
+            </div>
+        </div>
+
+        <button class="btn-capture" onclick="capturar()"></button>
+
+        <div class="panel">
+            <div class="data-row" style="color: #00f5ff; font-size: 12px;">
+                <span>SISTEMA:</span> <span>T-CAMERA V26</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CÁMARA ---
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" },
+                    audio: false
+                });
+                document.getElementById('video').srcObject = stream;
+            } catch (err) {
+                console.error("Cámara no disponible:", err);
+            }
+        }
+
+        // --- GPS CON ALTITUD (Z) ---
+        function initGPS() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition((pos) => {
+                    document.getElementById('lat').innerText = pos.coords.latitude.toFixed(6);
+                    document.getElementById('lon').innerText = pos.coords.longitude.toFixed(6);
+                    
+                    // Validar si el dispositivo provee altitud
+                    if (pos.coords.altitude !== null) {
+                        document.getElementById('alt').innerText = pos.coords.altitude.toFixed(2) + " m";
+                    } else {
+                        document.getElementById('alt').innerText = "No disponible";
+                    }
+                }, null, { 
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0 
+                });
+            } else {
+                document.getElementById('lat').innerText = "No soportado";
+                document.getElementById('lon').innerText = "No soportado";
+                document.getElementById('alt').innerText = "No soportado";
+            }
+        }
+
+        // --- RELOJ ---
+        function updateClock() {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+        }
+
+        // --- EDITOR ---
+        function toggleSettings() {
+            const panel = document.getElementById('settings-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // --- ACTUALIZACIONES DE UI ---
+        function actualizarTexto() {
+            const txt = document.getElementById('edit-empresa').value;
+            document.getElementById('display-empresa').innerText = txt || "DATOS DE UBICACIÓN - TECNLAB";
+        }
+
+        function actualizarLogo(event) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const img = document.getElementById('logo-preview');
+                img.src = reader.result;
+                img.style.display = 'block';
+            };
+            if(event.target.files[0]) reader.readAsDataURL(event.target.files[0]);
+        }
+
+        // --- CAPTURAR Y GUARDAR FOTO EN DISPOSITIVO ---
+        function capturar() {
+            // 1. Efecto visual de flash blanco en pantalla
+            document.body.style.backgroundColor = "white";
+            setTimeout(() => { document.body.style.backgroundColor = "#000814"; }, 100);
+            
+            const video = document.getElementById('video');
+            
+            // Recopilar los datos actuales en las variables del log
+            const lat = document.getElementById('lat').innerText;
+            const lon = document.getElementById('lon').innerText;
+            const alt = document.getElementById('alt').innerText;
+            console.log(`[CAPTURADO] Lat: ${lat}, Lon: ${lon}, Alt: ${alt}`);
+
+            // 2. Controlar que el video contenga un stream válido
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                alert("Error: El flujo de video no está listo para la captura.");
+                return;
+            }
+
+            // 3. Crear el lienzo auxiliar para renderizar el fotograma de la cámara
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // 4. Copiar la imagen actual de la cámara en el lienzo
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // 5. Convertir a datos URL en formato PNG de alta fidelidad
+            const dataURL = canvas.toDataURL('image/png');
+            
+            // 6. Configurar el disparador de descarga automático para Android/Navegadores
+            const enlace = document.createElement('a');
+            const fecha = new Date();
+            const timestamp = fecha.getFullYear() +
+                              String(fecha.getMonth() + 1).padStart(2, '0') +
+                              String(fecha.getDate()).padStart(2, '0') + "_" +
+                              String(fecha.getHours()).padStart(2, '0') +
+                              String(fecha.getMinutes()).padStart(2, '0') +
+                              String(fecha.getSeconds()).padStart(2, '0');
+            
+            // Formato de nombre técnico del archivo: TCAMERA_AAAAMMDD_HHMMSS.png
+            enlace.download = `TCAMERA_${timestamp}.png`;
+            enlace.href = dataURL;
+            
+            // 7. Simular la ejecución del guardado de archivo en el árbol del DOM
+            document.body.appendChild(enlace);
+            enlace.click();
+            document.body.removeChild(enlace);
+        }
+
+        // --- SERVICE WORKER (PWA offline) ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+
+        // --- INSTALL PROMPT ---
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('install-banner').style.display = 'block';
+        });
+
+        document.getElementById('btn-install').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                document.getElementById('install-banner').style.display = 'none';
+            }
+        });
+
+        // --- INICIO ---
+        window.onload = () => {
+            initCamera();
+            initGPS();
+            setInterval(updateClock, 1000);
+        };
+    </script>
+</body>
+</html>
